@@ -72,13 +72,25 @@ const performBulkEmailVerification = (email) => {
   let status = EMAIL_STATUS.DELIVERABLE;
   let subStatus = SUB_STATUS.VALID_MAILBOX;
   let riskFactors = [];
+// Enhanced domain validation with proper TLD checking
+  const validTLDs = /\.(com|org|net|edu|gov|mil|int|co|uk|ca|de|fr|it|es|au|jp|cn|ru|br|mx|za|in|nl|se|no|dk|fi|pl|ch|at|be|ie|pt|gr|cz|hu|ro|bg|hr|si|sk|lt|lv|ee|is|mt|cy|lu)$/i;
+  const domainStructure = /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+  const hasConsecutiveChars = /(.)\1{3,}/; // 4+ consecutive same characters
   
-  // Advanced domain validation
   const domainValid = !domainLower.includes("nonexistent") && 
                      !domainLower.includes("invalid") && 
                      !domainLower.includes("fake") &&
-                     domainLower.length >= 4;
-  
+                     domainLower.includes('.') &&
+                     domainLower.length >= 4 &&
+                     domainLower.length <= 253 &&
+                     validTLDs.test(domainLower) &&
+                     domainStructure.test(domainLower) &&
+                     !hasConsecutiveChars.test(domainLower) &&
+                     !domainLower.includes('..') &&
+                     !domainLower.startsWith('.') &&
+                     !domainLower.endsWith('.') &&
+                     !domainLower.startsWith('-') &&
+                     !domainLower.endsWith('-');
   const mxRecords = domainValid && (domainInfo?.mxVerified !== false);
   let smtpCheck = domainValid;
   
