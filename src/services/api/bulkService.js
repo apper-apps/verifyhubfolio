@@ -345,37 +345,3 @@ export const downloadResults = async (results, format = 'csv') => {
   
   throw new Error("Unsupported download format");
 };
-
-export const downloadResults = async (results) => {
-  if (!results || !Array.isArray(results)) {
-    throw new Error("No results to download");
-  }
-
-  // Create CSV content
-  const headers = ["Email", "Status", "Sub Status", "Domain", "Response Time (ms)", "Risk Factors"];
-  const csvContent = [
-    headers.join(","),
-    ...results.map(result => [
-      result.email,
-      result.status,
-      result.subStatus || "",
-      result.domain,
-      result.responseTime,
-      result.riskFactors ? result.riskFactors.join("; ") : ""
-    ].map(field => `"${field}"`).join(","))
-  ].join("\n");
-
-  // Create and download file
-  const blob = new Blob([csvContent], { type: "text/csv" });
-  const url = window.URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `email-verification-results-${new Date().toISOString().split("T")[0]}.csv`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  window.URL.revokeObjectURL(url);
-
-  // Simulate upload delay
-  await new Promise(resolve => setTimeout(resolve, 500));
-};

@@ -141,45 +141,6 @@ export const exportHistory = async (historyData = null) => {
   return { success: true, message: "History exported successfully" };
 };
 
-export const exportHistory = async (historyData) => {
-  if (!historyData || !Array.isArray(historyData)) {
-    throw new Error("No history data to export");
-  }
-
-  // Create CSV content
-  const headers = [
-    "Email", "Status", "Sub Status", "Domain", 
-    "Response Time (ms)", "Risk Factors", "Verified Date"
-  ];
-  
-  const csvContent = [
-    headers.join(","),
-    ...historyData.map(item => [
-      item.email,
-      item.status,
-      item.subStatus || "",
-      item.domain,
-      item.responseTime,
-      item.riskFactors ? item.riskFactors.join("; ") : "",
-      new Date(item.verifiedAt).toLocaleString()
-    ].map(field => `"${field}"`).join(","))
-  ].join("\n");
-
-  // Create and download file
-  const blob = new Blob([csvContent], { type: "text/csv" });
-  const url = window.URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = `verification-history-${new Date().toISOString().split("T")[0]}.csv`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  window.URL.revokeObjectURL(url);
-
-  // Simulate processing delay
-  await new Promise(resolve => setTimeout(resolve, 800));
-};
-
 export const clearHistory = async () => {
   // Add delay for realistic loading
   await new Promise(resolve => setTimeout(resolve, Math.random() * 500 + 300));
