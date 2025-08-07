@@ -1,0 +1,27 @@
+{
+  "Id": 1,
+  "totalVerified": 1247,
+  "deliverableRate": 78.5,
+  "riskRate": 12.3,
+  "undeliverableRate": 7.8,
+  "unknownRate": 1.4,
+  "avgResponseTime": 1850,
+  "todayVerified": 42,
+  "thisWeekVerified": 186,
+  "thisMonthVerified": 634,
+  "topDomains": [
+    { "domain": "gmail.com", "count": 234, "deliverableRate": 89.2 },
+    { "domain": "outlook.com", "count": 156, "deliverableRate": 85.6 },
+    { "domain": "yahoo.com", "count": 143, "deliverableRate": 82.1 },
+    { "domain": "company.com", "count": 89, "deliverableRate": 76.4 },
+    { "domain": "enterprise.net", "count": 67, "deliverableRate": 91.0 }
+  ],
+  "riskFactorDistribution": {
+    "role_based": 45,
+    "disposable": 23,
+    "catch_all": 38,
+    "free_provider": 67,
+    "timeout": 12
+  },
+  "lastUpdated": "2024-01-15T10:30:00Z"
+}
