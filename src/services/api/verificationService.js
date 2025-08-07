@@ -68,18 +68,37 @@ const ROLE_PREFIXES = [
 ];
 
 // Enhanced verification simulation with realistic delays
+// SMTP Configuration following technical requirements
+const SMTP_CONFIG = {
+  smtpPorts: [25, 587, 2525],
+  connectionTimeout: 10000, // ms
+  commandTimeout: 5000, // ms
+  maxRetries: 3,
+  retryDelay: 1000, // ms
+  tlsOptions: {
+    rejectUnauthorized: false,
+    minVersion: 'TLSv1.2'
+  },
+  fromEmail: "verify@yourdomain.com",
+  helloHostname: "yourdomain.com"
+};
+
 const simulateVerification = (email) => {
   return new Promise((resolve) => {
-    // Variable delay based on email complexity
+    // SMTP verification simulation with realistic delays
     const complexity = email.includes('@gmail.com') ? 0.5 : 
                       email.includes('disposable') ? 2.0 : 1.0;
     const baseDelay = Math.random() * 600 + 300; // 300-900ms base
     const adjustedDelay = baseDelay * complexity;
     
+    // Simulate connection timeout for certain domains
+    const shouldTimeout = email.includes('timeout') || email.includes('slow');
+    const finalDelay = shouldTimeout ? SMTP_CONFIG.connectionTimeout : adjustedDelay;
+    
     setTimeout(() => {
       const result = performEmailVerification(email);
       resolve(result);
-    }, adjustedDelay);
+    }, finalDelay);
   });
 };
 
@@ -105,7 +124,14 @@ const performEmailVerification = (email) => {
       responseTime: Math.floor(Math.random() * 200) + 50,
       riskFactors: ["invalid_format"],
       verifiedAt: new Date().toISOString(),
-      confidence: 100
+      confidence: 100,
+      smtp: {
+        connected: false,
+        port: null,
+        tlsEnabled: false,
+        responseCode: null,
+        responseMessage: "Invalid syntax - no SMTP check performed"
+      }
     };
   }
 
@@ -114,12 +140,14 @@ const performEmailVerification = (email) => {
   const localLower = localPart.toLowerCase();
   
   // Enhanced domain characteristics lookup
-  const domainInfo = DOMAIN_CHARACTERISTICS[domainLower];
+  const domainInfo = DOMAIN_CHARACTERISTICS[domainLower] || 
+                    { provider: "corporate", reliable: true, mxVerified: true, reputation: "good" };
   let status = EMAIL_STATUS.DELIVERABLE;
   let subStatus = SUB_STATUS.VALID_MAILBOX;
   let riskFactors = [];
   let confidence = 85;
-// Enhanced domain validation with proper TLD checking
+
+  // Enhanced domain validation with proper TLD checking
   const validTLDs = /\.(com|org|net|edu|gov|mil|int|co|uk|ca|de|fr|it|es|au|jp|cn|ru|br|mx|za|in|nl|se|no|dk|fi|pl|ch|at|be|ie|pt|gr|cz|hu|ro|bg|hr|si|sk|lt|lv|ee|is|mt|cy|lu)$/i;
   const domainStructure = /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
   const hasConsecutiveChars = /(.)\1{3,}/; // 4+ consecutive same characters
@@ -138,14 +166,93 @@ const performEmailVerification = (email) => {
                      !domainLower.endsWith('.') &&
                      !domainLower.startsWith('-') &&
                      !domainLower.endsWith('-');
+  
   const mxRecords = domainValid && (domainInfo?.mxVerified !== false);
   let smtpCheck = domainValid;
   
+  // SMTP Connection Simulation
+  let smtpResult = {
+    connected: false,
+    port: null,
+    tlsEnabled: false,
+    responseCode: null,
+    responseMessage: "",
+    retryCount: 0,
+    greylistDetected: false
+  };
+  
+  if (domainValid && mxRecords) {
+    // Simulate SMTP connection attempt through multiple ports
+    const ports = SMTP_CONFIG.smtpPorts;
+    let connectionSuccessful = false;
+    
+    for (let i = 0; i < ports.length && !connectionSuccessful; i++) {
+      const port = ports[i];
+      const connectionChance = port === 25 ? 0.7 : port === 587 ? 0.9 : 0.8;
+      
+      if (Math.random() < connectionChance) {
+        smtpResult.connected = true;
+        smtpResult.port = port;
+        smtpResult.tlsEnabled = port !== 25; // STARTTLS simulation
+        connectionSuccessful = true;
+        
+        // Simulate RCPT TO command
+        if (localLower.includes("greylist") || domainLower.includes("greylist")) {
+          smtpResult.responseCode = 451;
+          smtpResult.responseMessage = "451 4.7.1 Greylisted, please try again later";
+          smtpResult.greylistDetected = true;
+          status = EMAIL_STATUS.RISKY;
+          subStatus = SUB_STATUS.GREYLISTED;
+          riskFactors.push("greylisted");
+          confidence -= 15;
+        } else if (localLower.includes("nonexistent") || localLower.includes("invalid") ||
+                   localLower.includes("notfound") || localLower.includes("fake")) {
+          smtpResult.responseCode = 550;
+          smtpResult.responseMessage = "550 5.1.1 User unknown";
+          status = EMAIL_STATUS.UNDELIVERABLE;
+          subStatus = SUB_STATUS.INVALID_MAILBOX;
+          smtpCheck = false;
+          confidence = 95;
+        } else if (localLower.includes("full") || localLower.includes("quota")) {
+          smtpResult.responseCode = 452;
+          smtpResult.responseMessage = "452 4.2.2 Mailbox full";
+          status = EMAIL_STATUS.RISKY;
+          riskFactors.push("mailbox_full");
+          confidence -= 25;
+        } else {
+          smtpResult.responseCode = 250;
+          smtpResult.responseMessage = "250 2.1.5 OK";
+        }
+      }
+    }
+    
+    // Handle connection timeout simulation
+    if (domainLower.includes("timeout") || localLower.includes("slow")) {
+      smtpResult.connected = false;
+      smtpResult.responseCode = null;
+      smtpResult.responseMessage = "Connection timeout";
+      status = EMAIL_STATUS.UNKNOWN;
+      subStatus = SUB_STATUS.TIMEOUT;
+      riskFactors.push("timeout");
+      smtpCheck = false;
+      confidence = 0;
+    }
+    
+    // Rate limiting simulation
+    if (Math.random() < 0.1) { // 10% chance of rate limiting
+      smtpResult.retryCount = Math.floor(Math.random() * SMTP_CONFIG.maxRetries) + 1;
+      if (smtpResult.retryCount >= SMTP_CONFIG.maxRetries) {
+        smtpResult.responseMessage += " (Max retries reached)";
+      }
+    }
+  }
+
   if (!domainValid) {
     status = EMAIL_STATUS.UNDELIVERABLE;
     subStatus = SUB_STATUS.INVALID_DOMAIN;
     smtpCheck = false;
     confidence = 100;
+    smtpResult.responseMessage = "Domain validation failed - no SMTP check performed";
   } else {
     // Role-based email detection with comprehensive checking
     const isRoleBased = ROLE_PREFIXES.some(prefix => localLower.startsWith(prefix));
@@ -163,12 +270,12 @@ const performEmailVerification = (email) => {
       riskFactors.push("disposable", "temporary");
       smtpCheck = false;
       confidence -= 30;
+      smtpResult.responseMessage = "Disposable domain - SMTP check skipped";
     }
     
     // Free provider handling
     if (domainInfo?.provider === "free" && status === EMAIL_STATUS.DELIVERABLE) {
       riskFactors.push("free_provider");
-      // Free providers are generally reliable, small confidence reduction
       confidence -= 5;
     }
     
@@ -186,37 +293,19 @@ const performEmailVerification = (email) => {
       confidence -= 25;
     }
     
-    // Timeout simulation
-    if (domainLower.includes("timeout") || localLower.includes("slow")) {
-      status = EMAIL_STATUS.UNKNOWN;
-      subStatus = SUB_STATUS.TIMEOUT;
-      riskFactors.push("timeout");
-      smtpCheck = false;
-      confidence = 0;
-    }
-    
-    // Greylisting detection
-    if (localLower.includes("greylist") || domainLower.includes("greylist")) {
-      status = EMAIL_STATUS.RISKY;
-      subStatus = SUB_STATUS.GREYLISTED;
-      riskFactors.push("greylisted");
-      confidence -= 15;
-    }
-    
-// Invalid mailbox patterns and random character detection
+    // Invalid mailbox patterns and random character detection
     const hasRandomPattern = /^[a-z]*[fdsw]{3,}[a-z]*$/.test(localLower) || 
                             localLower.length > 8 && /([a-z])\1{2,}/.test(localLower) ||
                             localLower.match(/^[a-z]{10,}$/) && !localLower.match(/^(admin|support|info|contact|sales|marketing|test|demo|user|guest|public)$/);
     
-    if (localLower.includes("nonexistent") || localLower.includes("invalid") ||
-        localLower.includes("notfound") || localLower.includes("fake") ||
-        localLower.includes("deleted") || hasRandomPattern ||
-        (domainInfo?.strictMailbox && localLower.match(/^[a-z]+[0-9]*[a-z]*$/) && localLower.length > 6)) {
-      status = EMAIL_STATUS.UNDELIVERABLE;
-      subStatus = SUB_STATUS.INVALID_MAILBOX;
-      smtpCheck = false;
-      riskFactors = [];
-      confidence = 95;
+    if (hasRandomPattern || (domainInfo?.strictMailbox && localLower.match(/^[a-z]+[0-9]*[a-z]*$/) && localLower.length > 6)) {
+      if (smtpResult.responseCode !== 250) { // Only override if SMTP didn't already validate
+        status = EMAIL_STATUS.UNDELIVERABLE;
+        subStatus = SUB_STATUS.INVALID_MAILBOX;
+        smtpCheck = false;
+        riskFactors = [];
+        confidence = 95;
+      }
     }
     
     // Additional risk factor analysis
@@ -241,7 +330,7 @@ const performEmailVerification = (email) => {
   // Ensure confidence stays within bounds
   confidence = Math.max(0, Math.min(100, confidence));
   
-  // Realistic response time based on verification complexity
+  // Realistic response time based on verification complexity and SMTP operations
   let responseTime;
   switch (status) {
     case EMAIL_STATUS.UNDELIVERABLE:
@@ -257,6 +346,11 @@ const performEmailVerification = (email) => {
       responseTime = Math.floor(Math.random() * 1000) + 400; // 400-1400ms
   }
   
+  // Add SMTP connection time if applicable
+  if (smtpResult.connected) {
+    responseTime += Math.floor(Math.random() * 500) + 100; // 100-600ms additional for SMTP
+  }
+  
   return {
     email,
     status,
@@ -269,7 +363,8 @@ const performEmailVerification = (email) => {
     responseTime,
     riskFactors,
     verifiedAt: new Date().toISOString(),
-confidence
+    confidence,
+    smtp: smtpResult
   };
 };
 
@@ -280,7 +375,16 @@ export const verifyEmail = async (email) => {
   
   const trimmedEmail = email.trim();
   
-  // Add to history if we have the history service
+  // Validate SMTP configuration
+  if (!SMTP_CONFIG.smtpPorts || SMTP_CONFIG.smtpPorts.length === 0) {
+    throw new Error("SMTP configuration is invalid - no ports specified");
+  }
+  
+  if (SMTP_CONFIG.connectionTimeout <= 0 || SMTP_CONFIG.commandTimeout <= 0) {
+    throw new Error("SMTP configuration is invalid - timeouts must be positive");
+  }
+  
+  // Perform SMTP verification simulation
   const result = await simulateVerification(trimmedEmail);
   
   // Import and add to history (avoiding circular dependency)

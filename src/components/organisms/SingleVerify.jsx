@@ -1,12 +1,13 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { toast } from "react-toastify";
-import Card from "@/components/atoms/Card";
-import Input from "@/components/atoms/Input";
-import Button from "@/components/atoms/Button";
+import { verifyEmail } from "@/services/api/verificationService";
 import ApperIcon from "@/components/ApperIcon";
 import EmailStatusBadge from "@/components/molecules/EmailStatusBadge";
-import { verifyEmail } from "@/services/api/verificationService";
+import Header from "@/components/organisms/Header";
+import Input from "@/components/atoms/Input";
+import Button from "@/components/atoms/Button";
+import Card from "@/components/atoms/Card";
 
 const SingleVerify = () => {
   const [email, setEmail] = useState("");
@@ -18,9 +19,9 @@ const SingleVerify = () => {
     if (!email) {
       toast.error("Please enter an email address");
       return;
-    }
+}
 
-setLoading(true);
+    setLoading(true);
     setResult(null);
     try {
       const verificationResult = await verifyEmail(email);
@@ -121,10 +122,10 @@ setLoading(true);
         >
           <Card>
             <Card.Header>
-              <div className="flex items-center justify-between">
+<div className="flex items-center justify-between">
                 <Card.Title>Verification Results</Card.Title>
                 <EmailStatusBadge 
-status={result.status}
+                  status={result.status}
                   subStatus={result.subStatus}
                 />
               </div>
@@ -138,9 +139,9 @@ status={result.status}
                     Basic Information
                   </h4>
                   <div className="space-y-3 pl-6">
-                    <div className="flex justify-between">
+<div className="flex justify-between">
                       <span className="text-gray-600">Email:</span>
-<span className="font-medium">{result.email}</span>
+                      <span className="font-medium">{result.email}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Domain:</span>
@@ -181,16 +182,18 @@ status={result.status}
                     <ApperIcon name="CheckCircle" className="w-4 h-4 mr-2 text-success" />
                     Technical Checks
                   </h4>
-                  <div className="space-y-3 pl-6">
+<div className="space-y-3 pl-6">
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">Syntax Valid:</span>
-<ApperIcon 
-                        name={result.syntaxValid ? "Check" : "X"} 
-                        className={`w-4 h-4 ${result.syntaxValid ? "text-success" : "text-error"}`}
-                      />
-                      <span className="text-xs text-gray-500 ml-1">
-                        {result.syntaxValid ? "Valid" : "Invalid"}
-                      </span>
+                      <div className="flex items-center">
+                        <ApperIcon 
+                          name={result.syntaxValid ? "Check" : "X"} 
+                          className={`w-4 h-4 ${result.syntaxValid ? "text-success" : "text-error"}`}
+                        />
+                        <span className="text-xs text-gray-500 ml-1">
+                          {result.syntaxValid ? "Valid" : "Invalid"}
+                        </span>
+                      </div>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">Domain Valid:</span>
@@ -227,13 +230,90 @@ status={result.status}
                           {result.smtpCheck ? "Passed" : "Failed"}
                         </span>
                       </div>
-                    </div>
+</div>
                   </div>
                 </div>
               </div>
+            </Card.Content>
+              {/* SMTP Details */}
+              {result.smtp && (
+                <div className="mt-6 pt-6 border-t border-gray-100">
+                  <h4 className="font-semibold text-gray-900 flex items-center mb-4">
+                    <ApperIcon name="Server" className="w-4 h-4 mr-2 text-primary" />
+                    SMTP Verification Details
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Connection:</span>
+                        <div className="flex items-center">
+                          <ApperIcon 
+                            name={result.smtp.connected ? "Check" : "X"} 
+                            className={`w-4 h-4 ${result.smtp.connected ? "text-success" : "text-error"}`}
+                          />
+                          <span className="text-xs text-gray-500 ml-1">
+                            {result.smtp.connected ? "Connected" : "Failed"}
+                          </span>
+                        </div>
+                      </div>
+                      {result.smtp.port && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Port:</span>
+                          <span className="font-medium">{result.smtp.port}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">TLS Enabled:</span>
+                        <div className="flex items-center">
+                          <ApperIcon 
+                            name={result.smtp.tlsEnabled ? "Shield" : "ShieldOff"} 
+                            className={`w-4 h-4 ${result.smtp.tlsEnabled ? "text-success" : "text-gray-400"}`}
+                          />
+                          <span className="text-xs text-gray-500 ml-1">
+                            {result.smtp.tlsEnabled ? "Yes" : "No"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="space-y-3">
+                      {result.smtp.responseCode && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Response Code:</span>
+                          <span className={`font-medium ${
+                            result.smtp.responseCode >= 200 && result.smtp.responseCode < 300 ? 'text-success' :
+                            result.smtp.responseCode >= 400 && result.smtp.responseCode < 500 ? 'text-warning' :
+                            'text-error'
+                          }`}>
+                            {result.smtp.responseCode}
+                          </span>
+                        </div>
+                      )}
+                      {result.smtp.greylistDetected && (
+                        <div className="flex items-center text-warning text-sm">
+                          <ApperIcon name="Clock" className="w-4 h-4 mr-1" />
+                          Greylisting Detected
+                        </div>
+                      )}
+                      {result.smtp.retryCount > 0 && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">Retries:</span>
+                          <span className="text-warning">{result.smtp.retryCount}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  {result.smtp.responseMessage && (
+                    <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                      <span className="text-sm text-gray-700 font-mono">
+                        {result.smtp.responseMessage}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Risk Factors */}
-{result.riskFactors && result.riskFactors.length > 0 && (
+              {result.riskFactors && result.riskFactors.length > 0 && (
                 <div className="mt-6 pt-6 border-t border-gray-100">
                   <h4 className="font-semibold text-gray-900 flex items-center mb-3">
                     <ApperIcon name="AlertTriangle" className="w-4 h-4 mr-2 text-warning" />
@@ -251,7 +331,6 @@ status={result.status}
                   </div>
                 </div>
               )}
-            </Card.Content>
           </Card>
         </motion.div>
       )}
