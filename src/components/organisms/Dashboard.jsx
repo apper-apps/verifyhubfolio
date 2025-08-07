@@ -26,9 +26,9 @@ const Dashboard = () => {
     setLoading(true);
     setError("");
     try {
-      const [statsData, recentData] = await Promise.all([
+const [statsData, recentData] = await Promise.all([
         getDashboardStats(),
-        getRecentVerifications()
+        getRecentVerifications(8) // Get more recent verifications
       ]);
       setStats(statsData);
       setRecentVerifications(recentData);
@@ -87,7 +87,7 @@ const Dashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard
           title="Total Verified"
-          value={stats.totalVerified.toLocaleString()}
+value={stats.totalVerified.toLocaleString()}
           change={`+${stats.todayVerified} today`}
           icon="CheckCircle"
           color="primary"
@@ -96,7 +96,8 @@ const Dashboard = () => {
         <StatCard
           title="Deliverable Rate"
           value={`${stats.deliverableRate}%`}
-          change={stats.deliverableRate > 85 ? "+Good" : "Needs improvement"}
+          change={stats.deliverableRate >= 85 ? "+Excellent quality" : 
+                  stats.deliverableRate >= 70 ? "+Good quality" : "Needs improvement"}
           icon="TrendingUp"
           color="success"
           delay={0.1}
@@ -104,7 +105,8 @@ const Dashboard = () => {
         <StatCard
           title="Risk Rate"
           value={`${stats.riskRate}%`}
-          change={stats.riskRate < 15 ? "+Low risk" : "Monitor closely"}
+          change={stats.riskRate <= 10 ? "+Very low risk" : 
+                  stats.riskRate <= 20 ? "+Low risk" : "Monitor closely"}
           icon="AlertTriangle"
           color="warning"
           delay={0.2}
@@ -112,7 +114,8 @@ const Dashboard = () => {
         <StatCard
           title="Avg Response"
           value={`${stats.avgResponseTime}ms`}
-          change="+Fast verification"
+          change={stats.avgResponseTime < 1000 ? "+Excellent speed" : 
+                  stats.avgResponseTime < 2000 ? "+Good speed" : "+Needs optimization"}
           icon="Zap"
           color="error"
           delay={0.3}
@@ -201,14 +204,20 @@ const Dashboard = () => {
                   <tbody>
 {recentVerifications.slice(0, 5).map((verification, index) => (
                       <motion.tr
-                        key={verification.Id}
+key={verification.Id}
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: 0.9 + index * 0.05 }}
                         className="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150"
                       >
-                        <td className="p-4 font-medium text-gray-900">
-                          {verification.email}
+                        <td className="p-4">
+                          <div className="font-medium text-gray-900">{verification.email}</div>
+                          {verification.isRecent && (
+                            <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800 mt-1">
+                              <ApperIcon name="Clock" className="w-3 h-3 mr-1" />
+                              Recent
+                            </span>
+                          )}
                         </td>
                         <td className="p-4">
                           <EmailStatusBadge
@@ -217,7 +226,15 @@ const Dashboard = () => {
                           />
                         </td>
                         <td className="p-4 text-gray-600">
-                          {verification.domain}
+                          <div>{verification.domain}</div>
+                          {verification.responseQuality && (
+                            <span className={`text-xs ${
+                              verification.responseQuality === 'excellent' ? 'text-success' :
+                              verification.responseQuality === 'good' ? 'text-warning' : 'text-error'
+                            }`}>
+                              {verification.responseQuality} speed
+                            </span>
+                          )}
                         </td>
                         <td className="p-4 text-gray-600">
                           {format(new Date(verification.verifiedAt), "MMM dd, HH:mm")}

@@ -1,10 +1,25 @@
 import verificationsData from "@/services/mockData/verifications.json";
 
+// In-memory storage for dynamic history management
+let dynamicHistory = [...verificationsData];
+let nextId = Math.max(...verificationsData.map(v => v.Id)) + 1;
+
+// Add verification result to history
+export const addVerificationToHistory = (verificationResult) => {
+  const historyItem = {
+    ...verificationResult,
+    Id: nextId++,
+    verifiedAt: new Date().toISOString()
+  };
+  dynamicHistory.unshift(historyItem);
+  return historyItem;
+};
+
 export const getVerificationHistory = async (filters = {}) => {
   // Add delay for realistic loading
   await new Promise(resolve => setTimeout(resolve, Math.random() * 500 + 300));
   
-  let history = verificationsData.map(v => ({ ...v }));
+  let history = dynamicHistory.map(v => ({ ...v }));
   
   // Apply filters if provided
   if (filters.status && filters.status !== "all") {
@@ -40,8 +55,19 @@ export const getHistoryStats = async () => {
   // Add delay for realistic loading  
   await new Promise(resolve => setTimeout(resolve, Math.random() * 300 + 100));
   
-  const history = verificationsData;
+  const history = dynamicHistory;
   const total = history.length;
+  
+  if (total === 0) {
+    return {
+      total: 0,
+      deliverable: 0,
+      undeliverable: 0,
+      risky: 0,
+      unknown: 0,
+      avgResponseTime: 0
+    };
+  }
   
   const statusCounts = history.reduce((acc, item) => {
     acc[item.status] = (acc[item.status] || 0) + 1;
@@ -64,14 +90,55 @@ export const deleteVerification = async (id) => {
   // Add delay for realistic loading
   await new Promise(resolve => setTimeout(resolve, Math.random() * 300 + 100));
   
-  const index = verificationsData.findIndex(v => v.Id === parseInt(id));
+  const index = dynamicHistory.findIndex(v => v.Id === parseInt(id));
   if (index === -1) {
     throw new Error("Verification not found");
   }
   
-  // In a real app, this would make an API call to delete the record
-  // For mock data, we'll simulate success
-  return { success: true, message: "Verification deleted successfully" };
+  // Actually remove from dynamic history
+  const deletedItem = dynamicHistory.splice(index, 1)[0];
+  return { 
+    success: true, 
+    message: "Verification deleted successfully",
+    deletedItem
+  };
+};
+
+// Export history functionality
+export const exportHistory = async (historyData = null) => {
+  // Add delay for realistic loading
+  await new Promise(resolve => setTimeout(resolve, Math.random() * 500 + 200));
+  
+  const dataToExport = historyData || dynamicHistory;
+  
+  // Create CSV content
+  const headers = ['Email', 'Status', 'Sub Status', 'Domain', 'Response Time (ms)', 'Verified At', 'Risk Factors'];
+  const csvContent = [
+    headers.join(','),
+    ...dataToExport.map(item => [
+      item.email,
+      item.status,
+      item.subStatus || '',
+      item.domain,
+      item.responseTime,
+      new Date(item.verifiedAt).toLocaleString(),
+      (item.riskFactors || []).join('; ')
+    ].map(field => `"${field}"`).join(','))
+  ].join('\n');
+  
+  // Create and trigger download
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  const url = URL.createObjectURL(blob);
+  
+  link.setAttribute('href', url);
+  link.setAttribute('download', `email_verification_history_${new Date().toISOString().split('T')[0]}.csv`);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  
+  return { success: true, message: "History exported successfully" };
 };
 
 export const exportHistory = async (historyData) => {
@@ -117,7 +184,14 @@ export const clearHistory = async () => {
   // Add delay for realistic loading
   await new Promise(resolve => setTimeout(resolve, Math.random() * 500 + 300));
   
-  // In a real app, this would make an API call to clear all history
-  // For mock data, we'll simulate success
-  return { success: true, message: "History cleared successfully" };
+  // Actually clear the dynamic history
+  const clearedCount = dynamicHistory.length;
+  dynamicHistory = [];
+  nextId = 1;
+  
+  return { 
+    success: true, 
+    message: `History cleared successfully (${clearedCount} items removed)`,
+    clearedCount 
+  };
 };

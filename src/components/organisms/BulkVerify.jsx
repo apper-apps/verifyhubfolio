@@ -87,7 +87,10 @@ const BulkVerify = () => {
         });
       }, 200);
 
-      const bulkResults = await processBulkVerification(emailList);
+const bulkResults = await processBulkVerification(emailList, (progress) => {
+        // Real-time progress tracking could be added here
+        console.log(`Processing: ${progress.percentage}% complete`);
+      });
       
       clearInterval(progressInterval);
       setProgress(100);
@@ -105,7 +108,7 @@ const BulkVerify = () => {
   const handleDownload = async () => {
     if (results) {
       try {
-        await downloadResults(results.results);
+await downloadResults(results.results, 'csv');
         toast.success("Results downloaded successfully");
       } catch (error) {
         toast.error("Failed to download results");
@@ -125,6 +128,8 @@ const BulkVerify = () => {
 
   const getStatusStats = () => {
     if (!results?.results) return {};
+// Enhanced statistics calculation
+    if (!results || !results.results) return {};
     
     const stats = results.results.reduce((acc, result) => {
       acc[result.status] = (acc[result.status] || 0) + 1;
@@ -132,11 +137,28 @@ const BulkVerify = () => {
     }, {});
 
     const total = results.results.length;
+    const avgResponseTime = Math.round(
+      results.results.reduce((sum, result) => sum + result.responseTime, 0) / total
+    );
+    
     return {
-      deliverable: { count: stats.deliverable || 0, percentage: ((stats.deliverable || 0) / total * 100).toFixed(1) },
-      undeliverable: { count: stats.undeliverable || 0, percentage: ((stats.undeliverable || 0) / total * 100).toFixed(1) },
-      risky: { count: stats.risky || 0, percentage: ((stats.risky || 0) / total * 100).toFixed(1) },
-      unknown: { count: stats.unknown || 0, percentage: ((stats.unknown || 0) / total * 100).toFixed(1) }
+      deliverable: { 
+        count: stats.deliverable || 0, 
+        percentage: ((stats.deliverable || 0) / total * 100).toFixed(1) 
+      },
+      undeliverable: { 
+        count: stats.undeliverable || 0, 
+        percentage: ((stats.undeliverable || 0) / total * 100).toFixed(1) 
+      },
+      risky: { 
+        count: stats.risky || 0, 
+        percentage: ((stats.risky || 0) / total * 100).toFixed(1) 
+      },
+      unknown: { 
+        count: stats.unknown || 0, 
+        percentage: ((stats.unknown || 0) / total * 100).toFixed(1) 
+      },
+      avgResponseTime
     };
   };
 
@@ -286,8 +308,15 @@ const BulkVerify = () => {
                   Verification Complete
                 </h3>
                 <p className="text-gray-600">
-                  Processed {results.totalEmails} email addresses
+Processed {results.totalEmails} email addresses in {
+                    Math.round((new Date(results.completedAt) - new Date(results.uploadedAt)) / 1000)
+                  } seconds
                 </p>
+                {getStatusStats().avgResponseTime && (
+                  <p className="text-sm text-gray-600 mb-4">
+                    Average response time: {getStatusStats().avgResponseTime}ms
+                  </p>
+                )}
               </div>
               <div className="flex gap-3">
                 <Button
@@ -309,15 +338,22 @@ const BulkVerify = () => {
 
             {/* Stats Grid */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              {Object.entries(getStatusStats()).map(([status, stats]) => (
-                <div key={status} className="text-center p-4 bg-gray-50 rounded-lg">
+{Object.entries(getStatusStats()).filter(([key]) => 
+                key !== 'avgResponseTime'
+              ).map(([status, stats]) => (
+                <div key={status} className={`text-center p-4 rounded-lg border-2 ${
+                  status === 'deliverable' ? 'bg-success/5 border-success/20' :
+                  status === 'undeliverable' ? 'bg-error/5 border-error/20' :
+                  status === 'risky' ? 'bg-warning/5 border-warning/20' :
+                  'bg-gray-50 border-gray-200'
+                }`}>
                   <div className="text-2xl font-bold text-gray-900 mb-1">
                     {stats.count}
                   </div>
-                  <div className="text-sm text-gray-600 mb-1 capitalize">
-                    {status}
+                  <div className="text-sm text-gray-600 mb-1 capitalize font-medium">
+                    {status.replace('_', ' ')}
                   </div>
-                  <div className="text-xs text-gray-500">
+                  <div className="text-xs text-gray-500 font-medium">
                     {stats.percentage}%
                   </div>
                 </div>
@@ -343,10 +379,18 @@ const BulkVerify = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {results.results.slice(0, 50).map((result, index) => (
-                      <tr key={index} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="p-4 font-medium text-gray-900">
-                          {result.email}
+{results.results.slice(0, 50).map((result, index) => (
+                      <tr key={index} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                        <td className="p-4">
+                          <div className="font-medium text-gray-900">{result.email}</div>
+                          {result.confidence && (
+                            <div className={`text-xs mt-1 ${
+                              result.confidence >= 80 ? 'text-success' : 
+                              result.confidence >= 60 ? 'text-warning' : 'text-error'
+                            }`}>
+                              {result.confidence}% confidence
+                            </div>
+                          )}
                         </td>
                         <td className="p-4">
                           <EmailStatusBadge 
@@ -357,8 +401,13 @@ const BulkVerify = () => {
                         <td className="p-4 text-gray-600">
                           {result.domain}
                         </td>
-                        <td className="p-4 text-gray-600">
-                          {result.responseTime}ms
+                        <td className="p-4">
+                          <div className={`font-medium ${
+                            result.responseTime < 1000 ? 'text-success' : 
+                            result.responseTime < 3000 ? 'text-warning' : 'text-error'
+                          }`}>
+                            {result.responseTime}ms
+                          </div>
                         </td>
                         <td className="p-4">
                           {result.riskFactors && result.riskFactors.length > 0 ? (
@@ -367,12 +416,15 @@ const BulkVerify = () => {
                                 <span
                                   key={i}
                                   className="px-2 py-1 bg-warning/10 text-warning text-xs rounded border border-warning/20"
+                                  title={factor.replace(/_/g, " ")}
                                 >
                                   {factor.replace(/_/g, " ")}
                                 </span>
                               ))}
                               {result.riskFactors.length > 2 && (
-                                <span className="text-xs text-gray-500">
+                                <span className="text-xs text-gray-500" title={
+                                  result.riskFactors.slice(2).join(', ').replace(/_/g, ' ')
+                                }>
                                   +{result.riskFactors.length - 2} more
                                 </span>
                               )}

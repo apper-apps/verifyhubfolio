@@ -20,11 +20,21 @@ const SingleVerify = () => {
       return;
     }
 
-    setLoading(true);
+setLoading(true);
+    setResult(null);
     try {
       const verificationResult = await verifyEmail(email);
       setResult(verificationResult);
-      toast.success("Email verification completed");
+      
+      // Show appropriate toast based on result
+      const statusMessages = {
+        deliverable: "✅ Email verified as deliverable!",
+        undeliverable: "❌ Email is undeliverable",
+        risky: "⚠️ Email flagged as risky",
+        unknown: "❓ Email status could not be determined"
+      };
+      
+      toast.success(statusMessages[verificationResult.status] || "Email verification completed");
     } catch (error) {
       toast.error("Verification failed. Please try again.");
       console.error("Verification error:", error);
@@ -114,7 +124,7 @@ const SingleVerify = () => {
               <div className="flex items-center justify-between">
                 <Card.Title>Verification Results</Card.Title>
                 <EmailStatusBadge 
-                  status={result.status}
+status={result.status}
                   subStatus={result.subStatus}
                 />
               </div>
@@ -130,7 +140,7 @@ const SingleVerify = () => {
                   <div className="space-y-3 pl-6">
                     <div className="flex justify-between">
                       <span className="text-gray-600">Email:</span>
-                      <span className="font-medium">{result.email}</span>
+<span className="font-medium">{result.email}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Domain:</span>
@@ -138,8 +148,24 @@ const SingleVerify = () => {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Response Time:</span>
-                      <span className="font-medium">{result.responseTime}ms</span>
+                      <span className={`font-medium ${
+                        result.responseTime < 1000 ? 'text-success' : 
+                        result.responseTime < 3000 ? 'text-warning' : 'text-error'
+                      }`}>
+                        {result.responseTime}ms
+                      </span>
                     </div>
+                    {result.confidence && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Confidence:</span>
+                        <span className={`font-medium ${
+                          result.confidence >= 80 ? 'text-success' : 
+                          result.confidence >= 60 ? 'text-warning' : 'text-error'
+                        }`}>
+                          {result.confidence}%
+                        </span>
+                      </div>
+                    )}
                     <div className="flex justify-between">
                       <span className="text-gray-600">Verified At:</span>
                       <span className="font-medium">
@@ -158,42 +184,60 @@ const SingleVerify = () => {
                   <div className="space-y-3 pl-6">
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">Syntax Valid:</span>
-                      <ApperIcon 
+<ApperIcon 
                         name={result.syntaxValid ? "Check" : "X"} 
                         className={`w-4 h-4 ${result.syntaxValid ? "text-success" : "text-error"}`}
                       />
+                      <span className="text-xs text-gray-500 ml-1">
+                        {result.syntaxValid ? "Valid" : "Invalid"}
+                      </span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">Domain Valid:</span>
-                      <ApperIcon 
-                        name={result.domainValid ? "Check" : "X"} 
-                        className={`w-4 h-4 ${result.domainValid ? "text-success" : "text-error"}`}
-                      />
+                      <div className="flex items-center">
+                        <ApperIcon 
+                          name={result.domainValid ? "Check" : "X"} 
+                          className={`w-4 h-4 ${result.domainValid ? "text-success" : "text-error"}`}
+                        />
+                        <span className="text-xs text-gray-500 ml-1">
+                          {result.domainValid ? "Valid" : "Invalid"}
+                        </span>
+                      </div>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">MX Records:</span>
-                      <ApperIcon 
-                        name={result.mxRecords ? "Check" : "X"} 
-                        className={`w-4 h-4 ${result.mxRecords ? "text-success" : "text-error"}`}
-                      />
+                      <div className="flex items-center">
+                        <ApperIcon 
+                          name={result.mxRecords ? "Check" : "X"} 
+                          className={`w-4 h-4 ${result.mxRecords ? "text-success" : "text-error"}`}
+                        />
+                        <span className="text-xs text-gray-500 ml-1">
+                          {result.mxRecords ? "Found" : "Not found"}
+                        </span>
+                      </div>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">SMTP Check:</span>
-                      <ApperIcon 
-                        name={result.smtpCheck ? "Check" : "X"} 
-                        className={`w-4 h-4 ${result.smtpCheck ? "text-success" : "text-error"}`}
-                      />
+                      <div className="flex items-center">
+                        <ApperIcon 
+                          name={result.smtpCheck ? "Check" : "X"} 
+                          className={`w-4 h-4 ${result.smtpCheck ? "text-success" : "text-error"}`}
+                        />
+                        <span className="text-xs text-gray-500 ml-1">
+                          {result.smtpCheck ? "Passed" : "Failed"}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Risk Factors */}
-              {result.riskFactors && result.riskFactors.length > 0 && (
+{result.riskFactors && result.riskFactors.length > 0 && (
                 <div className="mt-6 pt-6 border-t border-gray-100">
                   <h4 className="font-semibold text-gray-900 flex items-center mb-3">
                     <ApperIcon name="AlertTriangle" className="w-4 h-4 mr-2 text-warning" />
-                    Risk Factors
+                    Risk Factors ({result.riskFactors.length})
                   </h4>
                   <div className="flex flex-wrap gap-2">
                     {result.riskFactors.map((factor, index) => (

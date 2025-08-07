@@ -1,4 +1,6 @@
 import verificationsData from "@/services/mockData/verifications.json";
+import React from "react";
+import Error from "@/components/ui/Error";
 
 // Email status types
 const EMAIL_STATUS = {
@@ -22,43 +24,69 @@ const SUB_STATUS = {
   SERVER_ERROR: "server_error"
 };
 
-// Risk factors
+// Comprehensive risk factors
 const RISK_FACTORS = [
   "role_based", "disposable", "catch_all", "free_provider", 
-  "temporary", "no_reply", "timeout", "invalid_format"
+  "temporary", "no_reply", "timeout", "invalid_format",
+  "greylisted", "short_local_part", "suspicious_pattern"
 ];
 
-// Common domains and their characteristics
+// Enhanced domain characteristics database
 const DOMAIN_CHARACTERISTICS = {
-  "gmail.com": { provider: "free", reliable: true },
-  "yahoo.com": { provider: "free", reliable: true },
-  "outlook.com": { provider: "free", reliable: true },
-  "hotmail.com": { provider: "free", reliable: true },
-  "tempmail.org": { provider: "disposable", reliable: false },
-  "10minutemail.com": { provider: "disposable", reliable: false },
-  "guerrillamail.com": { provider: "disposable", reliable: false }
+  // Major free email providers
+  "gmail.com": { provider: "free", reliable: true, mxVerified: true, reputation: "excellent" },
+  "yahoo.com": { provider: "free", reliable: true, mxVerified: true, reputation: "good" },
+  "outlook.com": { provider: "free", reliable: true, mxVerified: true, reputation: "excellent" },
+  "hotmail.com": { provider: "free", reliable: true, mxVerified: true, reputation: "good" },
+  "aol.com": { provider: "free", reliable: true, mxVerified: true, reputation: "fair" },
+  "icloud.com": { provider: "free", reliable: true, mxVerified: true, reputation: "good" },
+  "protonmail.com": { provider: "free", reliable: true, mxVerified: true, reputation: "excellent" },
+  
+  // Disposable/temporary email providers
+  "tempmail.org": { provider: "disposable", reliable: false, mxVerified: false, reputation: "poor" },
+  "10minutemail.com": { provider: "disposable", reliable: false, mxVerified: false, reputation: "poor" },
+  "guerrillamail.com": { provider: "disposable", reliable: false, mxVerified: false, reputation: "poor" },
+  "mailinator.com": { provider: "disposable", reliable: false, mxVerified: false, reputation: "poor" },
+  "throwaway.email": { provider: "disposable", reliable: false, mxVerified: false, reputation: "poor" },
+  
+  // Corporate domains (examples)
+  "company.com": { provider: "corporate", reliable: true, mxVerified: true, reputation: "excellent" },
+  "business.org": { provider: "corporate", reliable: true, mxVerified: true, reputation: "good" },
+  "enterprise.net": { provider: "corporate", reliable: true, mxVerified: true, reputation: "good" }
 };
 
-// Role-based email prefixes
+// Extended role-based email prefixes
 const ROLE_PREFIXES = [
   "admin", "support", "info", "contact", "sales", "marketing", 
-  "noreply", "no-reply", "help", "service", "team", "office"
+  "noreply", "no-reply", "help", "service", "team", "office",
+  "webmaster", "postmaster", "abuse", "security", "billing",
+  "careers", "jobs", "hr", "legal", "privacy", "compliance"
 ];
 
+// Enhanced verification simulation with realistic delays
 const simulateVerification = (email) => {
-  // Add realistic delay
   return new Promise((resolve) => {
+    // Variable delay based on email complexity
+    const complexity = email.includes('@gmail.com') ? 0.5 : 
+                      email.includes('disposable') ? 2.0 : 1.0;
+    const baseDelay = Math.random() * 600 + 300; // 300-900ms base
+    const adjustedDelay = baseDelay * complexity;
+    
     setTimeout(() => {
       const result = performEmailVerification(email);
       resolve(result);
-    }, Math.random() * 800 + 400); // 400-1200ms delay
+    }, adjustedDelay);
   });
 };
 
+// Comprehensive email verification engine
 const performEmailVerification = (email) => {
-  // Basic syntax validation
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  const syntaxValid = emailRegex.test(email);
+  // Enhanced syntax validation with RFC compliance
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  const syntaxValid = emailRegex.test(email) && 
+                     !email.includes('..') && 
+                     !email.startsWith('.') && 
+                     !email.endsWith('.');
   
   if (!syntaxValid) {
     return {
@@ -70,9 +98,10 @@ const performEmailVerification = (email) => {
       domainValid: false,
       mxRecords: false,
       smtpCheck: false,
-      responseTime: 0,
+      responseTime: Math.floor(Math.random() * 200) + 50,
       riskFactors: ["invalid_format"],
-      verifiedAt: new Date().toISOString()
+      verifiedAt: new Date().toISOString(),
+      confidence: 100
     };
   }
 
@@ -80,68 +109,133 @@ const performEmailVerification = (email) => {
   const domainLower = domain.toLowerCase();
   const localLower = localPart.toLowerCase();
   
-  // Check domain characteristics
+  // Enhanced domain characteristics lookup
   const domainInfo = DOMAIN_CHARACTERISTICS[domainLower];
   let status = EMAIL_STATUS.DELIVERABLE;
   let subStatus = SUB_STATUS.VALID_MAILBOX;
   let riskFactors = [];
+  let confidence = 85;
   
-  // Domain validation
-  const domainValid = !domainLower.includes("nonexistent") && !domainLower.includes("invalid");
-  const mxRecords = domainValid;
+  // Advanced domain validation
+  const domainValid = !domainLower.includes("nonexistent") && 
+                     !domainLower.includes("invalid") && 
+                     !domainLower.includes("fake") &&
+                     domainLower.includes('.') &&
+                     domainLower.length >= 4;
+  
+  const mxRecords = domainValid && (domainInfo?.mxVerified !== false);
   let smtpCheck = domainValid;
   
   if (!domainValid) {
     status = EMAIL_STATUS.UNDELIVERABLE;
     subStatus = SUB_STATUS.INVALID_DOMAIN;
+    smtpCheck = false;
+    confidence = 100;
   } else {
-    // Check for role-based emails
+    // Role-based email detection with comprehensive checking
     const isRoleBased = ROLE_PREFIXES.some(prefix => localLower.startsWith(prefix));
     if (isRoleBased) {
       status = EMAIL_STATUS.RISKY;
       subStatus = SUB_STATUS.ROLE_BASED;
       riskFactors.push("role_based");
+      confidence -= 20;
     }
     
-    // Check for disposable emails
+    // Disposable email detection
     if (domainInfo?.provider === "disposable") {
       status = EMAIL_STATUS.RISKY;
       subStatus = SUB_STATUS.DISPOSABLE;
       riskFactors.push("disposable", "temporary");
+      smtpCheck = false;
+      confidence -= 30;
     }
     
-    // Check for free providers
+    // Free provider handling
     if (domainInfo?.provider === "free" && status === EMAIL_STATUS.DELIVERABLE) {
-      // Only add risk factor, don't change status for free providers
       riskFactors.push("free_provider");
+      // Free providers are generally reliable, small confidence reduction
+      confidence -= 5;
     }
     
-    // Simulate some catch-all domains
-    if (domainLower.includes("example") || domainLower.includes("test")) {
+    // Corporate email detection (higher confidence)
+    if (domainInfo?.provider === "corporate") {
+      confidence += 10;
+    }
+    
+    // Catch-all domain detection
+    if (domainLower.includes("example") || domainLower.includes("test") || 
+        domainLower.endsWith(".test") || domainLower.includes("catchall")) {
       status = EMAIL_STATUS.RISKY;
       subStatus = SUB_STATUS.CATCH_ALL;
       riskFactors.push("catch_all");
-      if (isRoleBased) riskFactors.push("role_based");
+      confidence -= 25;
     }
     
-    // Simulate timeout scenarios
-    if (domainLower.includes("timeout")) {
+    // Timeout simulation
+    if (domainLower.includes("timeout") || localLower.includes("slow")) {
       status = EMAIL_STATUS.UNKNOWN;
       subStatus = SUB_STATUS.TIMEOUT;
       riskFactors.push("timeout");
       smtpCheck = false;
+      confidence = 0;
     }
     
-    // Simulate invalid mailbox for certain patterns
-    if (localLower.includes("nonexistent") || localLower.includes("invalid")) {
+    // Greylisting detection
+    if (localLower.includes("greylist") || domainLower.includes("greylist")) {
+      status = EMAIL_STATUS.RISKY;
+      subStatus = SUB_STATUS.GREYLISTED;
+      riskFactors.push("greylisted");
+      confidence -= 15;
+    }
+    
+    // Invalid mailbox patterns
+    if (localLower.includes("nonexistent") || localLower.includes("invalid") ||
+        localLower.includes("notfound") || localLower.includes("fake") ||
+        localLower.includes("deleted")) {
       status = EMAIL_STATUS.UNDELIVERABLE;
       subStatus = SUB_STATUS.INVALID_MAILBOX;
       smtpCheck = false;
       riskFactors = [];
+      confidence = 95;
+    }
+    
+    // Additional risk factor analysis
+    if (localPart.length < 2) {
+      riskFactors.push("short_local_part");
+      confidence -= 10;
+    }
+    
+    if (localLower.includes("test") || localLower.includes("demo")) {
+      riskFactors.push("suspicious_pattern");
+      confidence -= 15;
+    }
+    
+    // Reputation-based adjustments
+    if (domainInfo?.reputation === "excellent") {
+      confidence += 5;
+    } else if (domainInfo?.reputation === "poor") {
+      confidence -= 20;
     }
   }
   
-  const responseTime = Math.floor(Math.random() * 4000) + 500; // 500-4500ms
+  // Ensure confidence stays within bounds
+  confidence = Math.max(0, Math.min(100, confidence));
+  
+  // Realistic response time based on verification complexity
+  let responseTime;
+  switch (status) {
+    case EMAIL_STATUS.UNDELIVERABLE:
+      responseTime = Math.floor(Math.random() * 600) + 200; // 200-800ms
+      break;
+    case EMAIL_STATUS.RISKY:
+      responseTime = Math.floor(Math.random() * 1500) + 600; // 600-2100ms
+      break;
+    case EMAIL_STATUS.UNKNOWN:
+      responseTime = Math.floor(Math.random() * 4000) + 2000; // 2000-6000ms
+      break;
+    default:
+      responseTime = Math.floor(Math.random() * 1000) + 400; // 400-1400ms
+  }
   
   return {
     email,
@@ -154,33 +248,109 @@ const performEmailVerification = (email) => {
     smtpCheck,
     responseTime,
     riskFactors,
-    verifiedAt: new Date().toISOString()
+    verifiedAt: new Date().toISOString(),
+confidence
   };
 };
 
 export const verifyEmail = async (email) => {
-  if (!email || typeof email !== "string") {
-    throw new Error("Invalid email address");
+  if (!email || typeof email !== "string" || email.trim().length === 0) {
+    throw new Error("Invalid email address provided");
   }
   
-  return await simulateVerification(email.trim());
+  const trimmedEmail = email.trim();
+  
+  // Add to history if we have the history service
+  const result = await simulateVerification(trimmedEmail);
+  
+  // Import and add to history (avoiding circular dependency)
+  try {
+    const { addVerificationToHistory } = await import('./historyService.js');
+    addVerificationToHistory(result);
+  } catch (error) {
+    console.warn('Could not add verification to history:', error.message);
+  }
+  
+  return result;
 };
 
 export const getVerificationById = async (id) => {
   // Add delay for realistic loading
   await new Promise(resolve => setTimeout(resolve, Math.random() * 300 + 100));
   
-  const verification = verificationsData.find(v => v.Id === parseInt(id));
-  if (!verification) {
-    throw new Error("Verification not found");
+  const verificationId = parseInt(id);
+  if (isNaN(verificationId)) {
+    throw new Error("Invalid verification ID provided");
   }
   
-  return { ...verification };
+  const verification = verificationsData.find(v => v.Id === verificationId);
+  if (!verification) {
+    throw new Error(`Verification with ID ${id} not found`);
+  }
+  
+  return { 
+    ...verification,
+    accessedAt: new Date().toISOString()
+  };
 };
 
-export const getAllVerifications = async () => {
+export const getAllVerifications = async (filters = {}) => {
   // Add delay for realistic loading
   await new Promise(resolve => setTimeout(resolve, Math.random() * 500 + 200));
   
-  return verificationsData.map(v => ({ ...v }));
+  let verifications = verificationsData.map(v => ({ ...v }));
+  
+  // Apply filters if provided
+  if (filters.status && filters.status !== "all") {
+    verifications = verifications.filter(v => v.status === filters.status);
+  }
+  
+  if (filters.domain) {
+    verifications = verifications.filter(v => 
+      v.domain.toLowerCase().includes(filters.domain.toLowerCase())
+    );
+  }
+  
+  if (filters.riskFactorsOnly) {
+    verifications = verifications.filter(v => 
+      v.riskFactors && v.riskFactors.length > 0
+    );
+  }
+  
+  // Sort by verification date, newest first
+  verifications.sort((a, b) => new Date(b.verifiedAt) - new Date(a.verifiedAt));
+  
+  return verifications;
+};
+
+// Batch verification for multiple emails
+export const verifyEmailBatch = async (emails, onProgress = null) => {
+  if (!Array.isArray(emails) || emails.length === 0) {
+    throw new Error("Invalid email array provided");
+  }
+  
+  const results = [];
+  const batchSize = 5;
+  
+  for (let i = 0; i < emails.length; i += batchSize) {
+    const batch = emails.slice(i, i + batchSize);
+    const batchResults = await Promise.all(
+      batch.map(email => simulateVerification(email.trim()))
+    );
+    
+    results.push(...batchResults);
+    
+    if (onProgress) {
+      onProgress({
+        completed: results.length,
+        total: emails.length,
+        percentage: Math.round((results.length / emails.length) * 100)
+      });
+    }
+    
+    // Small delay between batches
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  
+  return results;
 };

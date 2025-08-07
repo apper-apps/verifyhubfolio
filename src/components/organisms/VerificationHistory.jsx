@@ -28,7 +28,7 @@ const VerificationHistory = () => {
     setLoading(true);
     setError("");
     try {
-      const data = await getVerificationHistory();
+const data = await getVerificationHistory({}); // Pass empty filters initially
       setHistory(data);
     } catch (err) {
       setError("Failed to load verification history");
@@ -41,8 +41,8 @@ const VerificationHistory = () => {
   const handleExport = async () => {
     try {
       const filteredHistory = getFilteredHistory();
-      await exportHistory(filteredHistory);
-      toast.success("History exported successfully");
+await exportHistory(filteredHistory);
+      toast.success(`History exported successfully (${filteredHistory.length} records)`);
     } catch (error) {
       toast.error("Failed to export history");
     }
@@ -52,17 +52,21 @@ const VerificationHistory = () => {
     let filtered = [...history];
 
     // Search filter
-    if (searchTerm) {
+if (searchTerm) {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(item =>
         item.email.toLowerCase().includes(term) ||
         item.domain.toLowerCase().includes(term) ||
-        item.status.toLowerCase().includes(term)
+        item.status.toLowerCase().includes(term) ||
+        (item.subStatus && item.subStatus.toLowerCase().includes(term)) ||
+        (item.riskFactors && item.riskFactors.some(factor => 
+          factor.toLowerCase().includes(term)
+        ))
       );
     }
 
     // Status filter
-    if (statusFilter !== "all") {
+if (statusFilter !== "all") {
       filtered = filtered.filter(item => item.status === statusFilter);
     }
 
@@ -86,7 +90,7 @@ const VerificationHistory = () => {
       }
       
       if (dateFilter !== "all") {
-        filtered = filtered.filter(item => 
+filtered = filtered.filter(item => 
           new Date(item.verifiedAt) >= filterDate
         );
       }
@@ -97,11 +101,20 @@ const VerificationHistory = () => {
 
   const filteredHistory = getFilteredHistory();
 
-  const getStatusCounts = () => {
-    return history.reduce((acc, item) => {
+const getStatusCounts = () => {
+    const filtered = getFilteredHistory();
+    const total = filtered.length;
+    const counts = filtered.reduce((acc, item) => {
       acc[item.status] = (acc[item.status] || 0) + 1;
       return acc;
     }, {});
+    
+    return {
+      ...counts,
+      total,
+      deliverableRate: total > 0 ? Math.round(((counts.deliverable || 0) / total) * 100) : 0,
+      riskRate: total > 0 ? Math.round(((counts.risky || 0) / total) * 100) : 0
+    };
   };
 
   const statusCounts = getStatusCounts();
@@ -258,14 +271,22 @@ const VerificationHistory = () => {
                   <tbody>
                     {filteredHistory.slice(0, 100).map((item, index) => (
                       <motion.tr
-                        key={item.Id}
+key={item.Id}
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         transition={{ delay: index * 0.02 }}
                         className="border-b border-gray-100 hover:bg-gray-50 transition-colors duration-150"
                       >
-                        <td className="p-4 font-medium text-gray-900">
-                          {item.email}
+                        <td className="p-4">
+                          <div className="font-medium text-gray-900">{item.email}</div>
+                          {item.confidence && (
+                            <div className={`text-xs mt-1 ${
+                              item.confidence >= 80 ? 'text-success' : 
+                              item.confidence >= 60 ? 'text-warning' : 'text-error'
+                            }`}>
+                              {item.confidence}% confidence
+                            </div>
+                          )}
                         </td>
                         <td className="p-4">
                           <EmailStatusBadge 
@@ -276,8 +297,13 @@ const VerificationHistory = () => {
                         <td className="p-4 text-gray-600">
                           {item.domain}
                         </td>
-                        <td className="p-4 text-gray-600">
-                          {item.responseTime}ms
+                        <td className="p-4">
+                          <div className={`font-medium ${
+                            item.responseTime < 1000 ? 'text-success' : 
+                            item.responseTime < 3000 ? 'text-warning' : 'text-error'
+                          }`}>
+                            {item.responseTime}ms
+                          </div>
                         </td>
                         <td className="p-4 text-gray-600">
                           {format(new Date(item.verifiedAt), "MMM dd, yyyy HH:mm")}
@@ -289,12 +315,15 @@ const VerificationHistory = () => {
                                 <span
                                   key={i}
                                   className="px-2 py-1 bg-warning/10 text-warning text-xs rounded border border-warning/20"
+                                  title={factor.replace(/_/g, " ")}
                                 >
                                   {factor.replace(/_/g, " ")}
                                 </span>
                               ))}
                               {item.riskFactors.length > 2 && (
-                                <span className="text-xs text-gray-500">
+                                <span className="text-xs text-gray-500" title={
+                                  item.riskFactors.slice(2).join(', ').replace(/_/g, ' ')
+                                }>
                                   +{item.riskFactors.length - 2} more
                                 </span>
                               )}
