@@ -52,7 +52,8 @@ const DOMAIN_CHARACTERISTICS = {
   // Corporate domains (examples)
   "company.com": { provider: "corporate", reliable: true, mxVerified: true, reputation: "excellent" },
   "business.org": { provider: "corporate", reliable: true, mxVerified: true, reputation: "good" },
-  "enterprise.net": { provider: "corporate", reliable: true, mxVerified: true, reputation: "good" }
+"enterprise.net": { provider: "corporate", reliable: true, mxVerified: true, reputation: "good" },
+  "fivehq.com": { provider: "corporate", reliable: true, mxVerified: true, reputation: "good", strictMailbox: true }
 };
 
 // Extended role-based email prefixes
@@ -199,10 +200,15 @@ const performEmailVerification = (email) => {
       confidence -= 15;
     }
     
-    // Invalid mailbox patterns
+// Invalid mailbox patterns and random character detection
+    const hasRandomPattern = /^[a-z]*[fdsw]{3,}[a-z]*$/.test(localLower) || 
+                            localLower.length > 8 && /([a-z])\1{2,}/.test(localLower) ||
+                            localLower.match(/^[a-z]{10,}$/) && !localLower.match(/^(admin|support|info|contact|sales|marketing|test|demo|user|guest|public)$/);
+    
     if (localLower.includes("nonexistent") || localLower.includes("invalid") ||
         localLower.includes("notfound") || localLower.includes("fake") ||
-        localLower.includes("deleted")) {
+        localLower.includes("deleted") || hasRandomPattern ||
+        (domainInfo?.strictMailbox && localLower.match(/^[a-z]+[0-9]*[a-z]*$/) && localLower.length > 6)) {
       status = EMAIL_STATUS.UNDELIVERABLE;
       subStatus = SUB_STATUS.INVALID_MAILBOX;
       smtpCheck = false;
