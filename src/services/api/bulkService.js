@@ -22,19 +22,42 @@ const SUB_STATUS = {
   SERVER_ERROR: "server_error"
 };
 
-const DOMAIN_CHARACTERISTICS = {
-  "gmail.com": { provider: "free", reliable: true, mxVerified: true },
-  "yahoo.com": { provider: "free", reliable: true, mxVerified: true },
-  "outlook.com": { provider: "free", reliable: true, mxVerified: true },
-  "hotmail.com": { provider: "free", reliable: true, mxVerified: true },
-  "aol.com": { provider: "free", reliable: true, mxVerified: true },
-  "icloud.com": { provider: "free", reliable: true, mxVerified: true },
-  "tempmail.org": { provider: "disposable", reliable: false, mxVerified: false },
-  "10minutemail.com": { provider: "disposable", reliable: false, mxVerified: false },
-  "guerrillamail.com": { provider: "disposable", reliable: false, mxVerified: false },
-  "mailinator.com": { provider: "disposable", reliable: false, mxVerified: false },
-  "company.com": { provider: "corporate", reliable: true, mxVerified: true },
-  "business.org": { provider: "corporate", reliable: true, mxVerified: true }
+// Dynamic domain classification system - works with any valid domain
+const KNOWN_FREE_PROVIDERS = [
+  "gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "aol.com", "icloud.com",
+  "live.com", "msn.com", "yahoo.co.uk", "googlemail.com", "me.com", "mac.com",
+  "ymail.com", "rocketmail.com", "mail.com", "gmx.com", "web.de"
+];
+
+const KNOWN_DISPOSABLE_PROVIDERS = [
+  "tempmail.org", "10minutemail.com", "guerrillamail.com", "mailinator.com",
+  "temp-mail.org", "throwaway.email", "getnada.com", "maildrop.cc",
+  "sharklasers.com", "guerrillamail.org", "guerrillamail.net", "guerrillamail.biz",
+  "guerrillamail.de", "grr.la", "guerrillamailblock.com", "pokemail.net",
+  "spam4.me", "boun.cr", "devnullmail.com", "emailondeck.com"
+];
+
+// Dynamic domain classification function
+const classifyDomain = (domain) => {
+  const domainLower = domain.toLowerCase();
+  
+  if (KNOWN_FREE_PROVIDERS.includes(domainLower)) {
+    return { provider: "free", reliable: true, mxVerified: true };
+  }
+  
+  if (KNOWN_DISPOSABLE_PROVIDERS.includes(domainLower)) {
+    return { provider: "disposable", reliable: false, mxVerified: false };
+  }
+  
+  // Check for disposable patterns
+  if (domainLower.includes("temp") || domainLower.includes("disposable") || 
+      domainLower.includes("throw") || domainLower.includes("fake") ||
+      domainLower.includes("spam") || domainLower.includes("trash")) {
+    return { provider: "disposable", reliable: false, mxVerified: false };
+  }
+  
+  // Default to corporate for any other valid domain
+  return { provider: "corporate", reliable: true, mxVerified: true };
 };
 
 const ROLE_PREFIXES = [
@@ -66,14 +89,15 @@ const performBulkEmailVerification = (email) => {
 
   const [localPart, domain] = email.split("@");
   const domainLower = domain.toLowerCase();
-  const localLower = localPart.toLowerCase();
+const localLower = localPart.toLowerCase();
   
-  const domainInfo = DOMAIN_CHARACTERISTICS[domainLower];
+  // Use dynamic domain classification instead of hardcoded lookup
+  const domainInfo = classifyDomain(domainLower);
   let status = EMAIL_STATUS.DELIVERABLE;
   let subStatus = SUB_STATUS.VALID_MAILBOX;
   let riskFactors = [];
-// Enhanced domain validation with proper TLD checking
-  const validTLDs = /\.(com|org|net|edu|gov|mil|int|co|uk|ca|de|fr|it|es|au|jp|cn|ru|br|mx|za|in|nl|se|no|dk|fi|pl|ch|at|be|ie|pt|gr|cz|hu|ro|bg|hr|si|sk|lt|lv|ee|is|mt|cy|lu)$/i;
+// Enhanced domain validation with comprehensive TLD checking for all domains
+  const validTLDs = /\.(com|org|net|edu|gov|mil|int|co|uk|ca|de|fr|it|es|au|jp|cn|ru|br|mx|za|in|nl|se|no|dk|fi|pl|ch|at|be|ie|pt|gr|cz|hu|ro|bg|hr|si|sk|lt|lv|ee|is|mt|cy|lu|us|info|biz|name|pro|museum|aero|coop|travel|jobs|mobi|tel|asia|xxx|post|geo|cat|arpa|ac|ad|ae|af|ag|ai|al|am|an|ao|aq|ar|as|aw|ax|az|ba|bb|bd|bf|bh|bi|bj|bm|bn|bo|bq|bs|bt|bv|bw|by|bz|cc|cd|cf|cg|ci|ck|cl|cm|co\.ao|co\.bw|co\.ck|co\.cr|co\.fk|co\.id|co\.il|co\.im|co\.in|co\.jp|co\.ke|co\.kr|co\.ls|co\.ma|co\.nz|co\.th|co\.tz|co\.ug|co\.uk|co\.uz|co\.ve|co\.vi|co\.za|co\.zm|co\.zw|cr|cu|cv|cw|cx|cy|dj|dm|do|dz|ec|ee|eg|eh|er|et|eu|fj|fk|fm|fo|ga|gb|gd|ge|gf|gg|gh|gi|gl|gm|gn|gp|gq|gs|gt|gu|gw|gy|hk|hm|hn|hr|ht|id|il|im|io|iq|ir|je|jm|jo|ke|kg|kh|ki|km|kn|kp|kr|kw|ky|kz|la|lb|lc|li|lk|lr|ls|ly|ma|mc|md|me|mg|mh|mk|ml|mm|mn|mo|mp|mq|mr|ms|mu|mv|mw|my|mz|na|nc|ne|nf|ng|ni|nu|nz|om|pa|pe|pf|pg|ph|pk|pm|pn|pr|ps|pw|py|qa|re|rs|rw|sa|sb|sc|sd|sg|sh|sj|sl|sm|sn|so|sr|ss|st|su|sv|sx|sy|sz|tc|td|tf|tg|th|tj|tk|tl|tm|tn|to|tr|tt|tv|tw|tz|ua|ug|um|uy|uz|va|vc|ve|vg|vi|vn|vu|wf|ws|ye|yt|yu|zm|zw)$/i;
   const domainStructure = /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
   const hasConsecutiveChars = /(.)\1{3,}/; // 4+ consecutive same characters
   

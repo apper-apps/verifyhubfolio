@@ -51,9 +51,12 @@ const DOMAIN_CHARACTERISTICS = {
   
   // Corporate domains (examples)
   "company.com": { provider: "corporate", reliable: true, mxVerified: true, reputation: "excellent" },
-  "business.org": { provider: "corporate", reliable: true, mxVerified: true, reputation: "good" },
-"enterprise.net": { provider: "corporate", reliable: true, mxVerified: true, reputation: "good" },
-  "fivehq.com": { provider: "corporate", reliable: true, mxVerified: true, reputation: "good", strictMailbox: true }
+"business.org": { provider: "corporate", reliable: true, mxVerified: true, reputation: "good" },
+  "enterprise.net": { provider: "corporate", reliable: true, mxVerified: true, reputation: "good" },
+  
+  // Dynamic domain classification - any domain not explicitly listed will be treated as corporate
+  // This allows the system to work with any valid domain structure
+  "*": { provider: "corporate", reliable: true, mxVerified: true, reputation: "good", dynamic: true }
 };
 
 // Extended role-based email prefixes
